@@ -69,7 +69,7 @@ FILE *open_conf_file()
     FILE *file;
     
     if(0 == uid || !(file = get_home_conf())) {
-        const char sys_conf[] = cfg_PREFIX cfg_SYSCONF cfg_PKG_NAME".conf";
+        const char sys_conf[] = cfg_SYSCONF"/"cfg_PKG_NAME".conf";
         file = fopen(sys_conf, "r");
     }
     

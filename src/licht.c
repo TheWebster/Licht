@@ -11,7 +11,7 @@
 #include <unistd.h>
 
 
-#define LOCKDIR cfg_PREFIX cfg_TMPDIR cfg_PKG_NAME
+#define LOCKDIR cfg_TMPDIR"/"cfg_PKG_NAME
 static const char g_lockdir[] = LOCKDIR;
 static const char g_socket[]  = LOCKDIR "/socket";
 
@@ -103,8 +103,6 @@ int main(int argc, char *argv[])
     
     fclose(fconf);
     
-    // set gid to cfg_GROUP
-    
     // try to grab lock directory
     if(0 == mkdir(g_lockdir, S_IRWXU|S_IRWXG)) {
         struct group *grp = getgrnam(cfg_GROUP);
@@ -133,6 +131,7 @@ int main(int argc, char *argv[])
         
         if(g_ctx.current == g_ctx.target)
             return 0;
+        
         
         // start worker thread
         if(errno = pthread_create(&g_ctx.worker, NULL, &do_change, NULL)) {
@@ -236,6 +235,9 @@ void *do_change(void *data)
         
         wait_timer(step_t);
     }
+    
+    write_itoa(br, g_ctx.target);
+    fclose(br);
     
     return NULL;
 }

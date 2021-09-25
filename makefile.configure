@@ -10,11 +10,12 @@ release   ?= yes
 release_flags ?= -O2
 debug_flags   ?= -O0 -g
 
+cfg_PREFIX   ?= /usr/local
+
 export cfg_PKG_NAME ?= Licht
 export cfg_VERSION  ?= $$(git describe --tags HEAD || echo 0.0)
-export cfg_PREFIX   ?= /
-export cfg_SYSCONF  ?= etc/
-export cfg_TMPDIR   ?= tmp/
+export cfg_SYSCONF  ?= /etc
+export cfg_TMPDIR   ?= /tmp
 export cfg_GROUP    ?= video
 
 cfg_BINDIR ?= usr/bin/
