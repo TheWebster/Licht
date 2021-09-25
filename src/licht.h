@@ -22,6 +22,7 @@ typedef struct {
 } licht_cmd_s;
 
 typedef struct {
+    char *device;
     int br_fd;
     int max_fd;
     

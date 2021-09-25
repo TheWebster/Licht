@@ -13,9 +13,11 @@
 #endif
 
 
-FILE *open_conf_file();
-int  parse_line(FILE *cfg, char *line_buf, int max, char **key, char **value);
-int  open_device(char *dev_path, int*br_fd, int *max_fd);
+char *acatstr2(const char *str1, const char *str2);
+FILE *get_home_conf();
+char *parse_line(FILE *cfg, char *line_buf, int max, char **key, char **value);
+char *get_default_device();
+int  open_device(char *dev_path, int *br_fd, int *max_fd);
 
 int  read_atoi(int fd);
 void write_itoa(FILE *file, int value);
@@ -36,6 +38,6 @@ int socket_recv();
 
 
 GLOBAL(const char err_cant_open[], "Could not open '%s' -- %s\n")
-GLOBAL(const char path_bl[], "/sys/class/backlight\n")
+GLOBAL(const char g_path_bl[], "/sys/class/backlight/")
 
 #endif /* _UTIL_H_ */

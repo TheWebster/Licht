@@ -18,6 +18,7 @@ static const char g_socket[]  = LOCKDIR "/socket";
 licht_cmd_s g_cmd = {0};
 licht_context_s g_ctx = {0};
 
+static void parse_conf(FILE *stream);
 static void process_cmd();
 static void cleanup(void);
 void *do_change(void *data);
@@ -67,41 +68,28 @@ int main(int argc, char *argv[])
             return 1;
         }
     }
-    // get config
-    FILE *fconf = open_conf_file();
-    if(NULL == fconf) {
-        fputs("Could not open any config file.\n", stderr);
-        return 1;
+    
+    // get system config
+    const char sysconf[] = cfg_SYSCONF"/"cfg_PKG_NAME".conf";
+    FILE *fconf = fopen(sysconf, "r");
+    if(NULL != fconf) {
+        parse_conf(fconf);
+        fclose(fconf);
     }
     
-    #define MAX_LINE_LEN 256
-    char *key, *value;
-    char line_buf[MAX_LINE_LEN];
-    while(EOF != parse_line(fconf, line_buf, MAX_LINE_LEN, &key, &value)) {
-        if('\0' == key[0] || NULL == value)
-            continue;
-    
-        #define streq_val key
-        if(streq("DEVICE")) {
-            if(open_device(value, &g_ctx.br_fd, &g_ctx.max_fd))
-                return 1;
-        }
-        else if(streq("SMOOTH_DURATION")) {
-            char *endptr;
-            int  val = strtol(value, &endptr, 10);
-            if(*endptr == '\0')
-                g_cmd.smooth_duration = val;
-        }
-        else if(streq("SMOOTH_INTERVAL")) {
-            char *endptr;
-            int  val = strtol(value, &endptr, 10);
-            if(*endptr == '\0')
-                g_cmd.smooth_interval = val;
-        }
-        #undef streq_val
+    // get user config
+    fconf = get_home_conf();
+    if(NULL != fconf) {
+        parse_conf(fconf);
+        fclose(fconf);
     }
     
-    fclose(fconf);
+    // get first entry in /sys/class/backlight
+    if(g_ctx.device == NULL)
+        g_ctx.device = get_default_device();
+    
+    open_device(g_ctx.device, &g_ctx.br_fd, &g_ctx.max_fd);
+    free(g_ctx.device);
     
     // try to grab lock directory
     if(0 == mkdir(g_lockdir, S_IRWXU|S_IRWXG)) {
@@ -165,6 +153,39 @@ int main(int argc, char *argv[])
     }
     
     return 0;
+}
+
+
+#define MAX_LINE_LEN 256
+static void parse_conf(FILE *stream)
+{
+    char *key, *value;
+    char line_buf[MAX_LINE_LEN];
+    
+    while(NULL != parse_line(stream, line_buf, MAX_LINE_LEN, &key, &value)) {
+        if('\0' == key[0] || NULL == value)
+            continue;
+    
+        #define streq_val key
+        if(streq("DEVICE")) {
+            if(g_ctx.device)
+                free(g_ctx.device);
+            g_ctx.device = strdup(value);
+        }
+        else if(streq("SMOOTH_DURATION")) {
+            char *endptr;
+            int  val = strtol(value, &endptr, 10);
+            if(*endptr == '\0')
+                g_cmd.smooth_duration = val;
+        }
+        else if(streq("SMOOTH_INTERVAL")) {
+            char *endptr;
+            int  val = strtol(value, &endptr, 10);
+            if(*endptr == '\0')
+                g_cmd.smooth_interval = val;
+        }
+        #undef streq_val
+    }
 }
 
 

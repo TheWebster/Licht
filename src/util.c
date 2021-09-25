@@ -3,11 +3,13 @@
 
 #include "util.h"
 #include "config.h"
+#include <assert.h>
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <pwd.h>
+#include <regex.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,71 +43,68 @@ char *acatstr2(const char *str1, const char *str2)
 }
 
 
-static FILE *get_home_conf()
+FILE *get_home_conf()
 {
-    FILE *file;
-    char *path;
-    char *xdg = getenv("XDG_CONFIG_HOME");
-    
-    if(xdg)
-        path = acatstr2(xdg, "/licht");
-    else {
-        uid_t uid = getuid();
-        struct passwd *pwd = getpwuid(uid);
-        
-        path = acatstr2(pwd->pw_dir, "/.config/licht.conf");
-    }
-    
-    file = fopen(path, "r");
-    free(path);
-    
-    return file;
-}
-
-
-FILE *open_conf_file()
-{
+    FILE *fconf = NULL;
     uid_t uid = getuid();
-    FILE *file;
-    
-    if(0 == uid || !(file = get_home_conf())) {
-        const char sys_conf[] = cfg_SYSCONF"/"cfg_PKG_NAME".conf";
-        file = fopen(sys_conf, "r");
+    if(uid != 0) {
+        char *path;
+        char *xdg = getenv("XDG_CONFIG_HOME");
+        
+        if(xdg)
+            path = acatstr2(xdg, "/"cfg_PKG_NAME".conf");
+        else {
+            struct passwd *pwd = getpwuid(uid);
+            
+            path = acatstr2(pwd->pw_dir, "/.config/"cfg_PKG_NAME".conf");
+        }
+        
+        fconf = fopen(path, "r");
+        free(path);
     }
     
-    return file;
+    return fconf;
 }
 
-int parse_line(FILE *cfg, char *line_buf, int max, char **key, char **value)
+
+char *parse_line(FILE *cfg, char *line_buf, int max, char **key, char **value)
 {
-    int c, i;
+    char      *c;
+    regex_t    preg;
+    regmatch_t pmatch[3] = {0};
+    const char rexpr[] =
+        "^\\s*([[:graph:]]+)\\s*=\\s*([[:graph:]]+)\\s*$";
     
-    // skip comments
-    while( '#' == (c = fgetc(cfg)))
-        while( '\n' != (c = fgetc(cfg)) && c != EOF);
+    assert(0 == regcomp(&preg, rexpr, REG_EXTENDED));
     
-    for(i = 0; c != '\n' && c != EOF; i++) {
-        // skip whitespace
-        while(isblank(c))
-            c = fgetc(cfg);
+    c = fgets(line_buf, max, cfg);
+    if(c != NULL) {
+        regexec(&preg, line_buf, 3, pmatch, 0);
         
-        if(i == max - 2)
-            break;
+        line_buf[pmatch[1].rm_eo] = '\0';
+        line_buf[pmatch[2].rm_eo] = '\0';
         
-        line_buf[i] = c;
-        c = fgetc(cfg);
-    }
-    line_buf[i] = '\0';
-    
-    *key = line_buf;
-    *value = strchr(*key, '=');
-    if(*value != NULL) {
-       **value = '\0';
-       *value += 1;;
+        *key   = line_buf + pmatch[1].rm_so;
+        *value = line_buf + pmatch[2].rm_so;
     }
     
     return c;
 }
+
+
+char *get_default_device()
+{
+    char *r;
+    struct dirent *de;
+    DIR *dir = opendir(g_path_bl);
+    
+    while(de = readdir(dir), !strcmp(de->d_name, ".") || !strcmp(de->d_name, ".."));
+    r = acatstr2(g_path_bl, de->d_name);
+    closedir(dir);
+    
+    return r;
+}
+
 
 int open_device(char *dev_path, int *br_fd, int *max_fd)
 {
