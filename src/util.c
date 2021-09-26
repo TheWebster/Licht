@@ -78,15 +78,16 @@ char *parse_line(FILE *cfg, char *line_buf, int max, char **key, char **value)
     assert(0 == regcomp(&preg, rexpr, REG_EXTENDED));
     
     c = fgets(line_buf, max, cfg);
-    if(c != NULL) {
-        regexec(&preg, line_buf, 3, pmatch, 0);
-        
-        line_buf[pmatch[1].rm_eo] = '\0';
-        line_buf[pmatch[2].rm_eo] = '\0';
-        
-        *key   = line_buf + pmatch[1].rm_so;
-        *value = line_buf + pmatch[2].rm_so;
-    }
+    if(c == NULL)
+        return NULL;
+    
+    regexec(&preg, line_buf, 3, pmatch, 0);
+    
+    line_buf[pmatch[1].rm_eo] = '\0';
+    line_buf[pmatch[2].rm_eo] = '\0';
+    
+    *key   = line_buf + pmatch[1].rm_so;
+    *value = line_buf + pmatch[2].rm_so;
     
     return c;
 }

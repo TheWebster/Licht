@@ -40,3 +40,5 @@ KEY = VALUE
 + `DEVICE = <path-to-device>` : Absolute path to a /sys directory (or any other kind of directory) that contains the files **brightness** and **max_brightness**. If this key is not present in both configuration files, it defaults to the first directory in `/sys/class/backlight`, which is usually all there is and is what the user wants to control.
 + `SMOOTH_DURTION = <milliseconds>` : The duration a transition to another brightness value will take. Defaults to 0, which means instantneous change.
 + `SMOOTH_INTERVAL = <milliseconds>` : The time between writes to the device. A sensible value would be 40ms, which results in 25 changes per second.
++ `RANGE_MAX = <value>` : Maximum brightness that can be set. An input of 100 will then be mapped to <value>.
++ `RANGE_MIN = <value>` : Minimum brightness that can be set. An input of 0 will then be mapped to <value>.

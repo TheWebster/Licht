@@ -23,6 +23,7 @@ static void process_cmd();
 static void cleanup(void);
 void *do_change(void *data);
 void *do_listen(void *data);
+float calc_ranged();
 
 static void print_usage(char *call);
 static void print_version();
@@ -57,6 +58,7 @@ int main(int argc, char *argv[])
     }
     #undef streq_val
     
+    // get value from cmdline
     if(g_cmd.op != LICHT_OP_GET) {
         if(argc < 3)
             return 1;
@@ -91,6 +93,7 @@ int main(int argc, char *argv[])
     open_device(g_ctx.device, &g_ctx.br_fd, &g_ctx.max_fd);
     free(g_ctx.device);
     
+    
     // try to grab lock directory
     if(0 == mkdir(g_lockdir, S_IRWXU|S_IRWXG)) {
         struct group *grp = getgrnam(cfg_GROUP);
@@ -105,7 +108,8 @@ int main(int argc, char *argv[])
         g_ctx.target  = g_ctx.current;
         process_cmd();
         
-        printf("%f\n", 100.0f / g_ctx.max * g_ctx.target );
+        
+        printf("%f\n", calc_ranged());
         
         // fork off
         if(fork())
@@ -184,6 +188,18 @@ static void parse_conf(FILE *stream)
             if(*endptr == '\0')
                 g_cmd.smooth_interval = val;
         }
+        else if(streq("RANGE_MAX")) {
+            char *endptr;
+            float val = strtof(value, &endptr);
+            if(*endptr == '\0')
+                g_cmd.range_max = fminf(100.0f, fmaxf(0.0f, val));
+        }
+        else if(streq("RANGE_MIN")) {
+            char *endptr;
+            float val = strtof(value, &endptr);
+            if(*endptr == '\0')
+                g_cmd.range_min = fminf(100.0f, fmaxf(0.0f, val));
+        }
         #undef streq_val
     }
 }
@@ -198,18 +214,23 @@ static void cleanup(void)
 
 static void process_cmd()
 {
+    
+    // map value to range
+    float rel = (g_cmd.range_max - g_cmd.range_min) / 100.0f * g_cmd.value;
+    float abs = rel + g_cmd.range_min;
+    
     // process command
     switch(g_cmd.op) {
         case LICHT_OP_SET:
-            g_ctx.target = (int)nearbyintf(g_cmd.value / 100.0f * g_ctx.max);
+            g_ctx.target = (int)nearbyintf(abs / 100.0f * g_ctx.max);
             break;
         
         case LICHT_OP_ADD:
-            g_ctx.target += (int)nearbyintf(g_cmd.value / 100.0f * g_ctx.max);
+            g_ctx.target += (int)nearbyintf(rel / 100.0f * g_ctx.max);
             break;
         
         case LICHT_OP_SUB:
-            g_ctx.target -= (int)nearbyintf(g_cmd.value / 100.0f * g_ctx.max);
+            g_ctx.target -= (int)nearbyintf(rel / 100.0f * g_ctx.max);
             break;
         
         case LICHT_OP_MUL:
@@ -278,14 +299,20 @@ void *do_listen(void *data)
             process_cmd();
             g_ctx.reset = 1;
         }
-        dprintf(fd, "%f\n", 100.0f / g_ctx.max * g_ctx.target );
+        dprintf(fd, "%f\n", calc_ranged() );
     }
     
     return NULL;
 }
         
         
-        
+float calc_ranged()
+{
+    float r = 100.0f / g_ctx.max * g_ctx.target;
+    r = (r - g_cmd.range_min) * 100.0f / (g_cmd.range_max - g_cmd.range_min);
+    
+    return fminf(100.0f, fmax(0.0f, r));
+}
 
 
 void print_usage(char *call)

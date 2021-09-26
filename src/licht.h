@@ -19,6 +19,9 @@ typedef struct {
     float value;
     int   smooth_duration;
     int   smooth_interval;
+    
+    float range_max;
+    float range_min;
 } licht_cmd_s;
 
 typedef struct {
