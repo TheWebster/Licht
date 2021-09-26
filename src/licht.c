@@ -15,15 +15,15 @@
 static const char g_lockdir[] = LOCKDIR;
 static const char g_socket[]  = LOCKDIR "/socket";
 
-licht_cmd_s g_cmd = {0};
+licht_cmd_s g_cmd = {.range_max = 100};
 licht_context_s g_ctx = {0};
 
 static void parse_conf(FILE *stream);
 static void process_cmd();
+static void get_target_normalized();
 static void cleanup(void);
 void *do_change(void *data);
 void *do_listen(void *data);
-float calc_ranged();
 
 static void print_usage(char *call);
 static void print_version();
@@ -105,11 +105,11 @@ int main(int argc, char *argv[])
         
         g_ctx.max     = read_atoi(g_ctx.max_fd);
         g_ctx.current = read_atoi(g_ctx.br_fd);
-        g_ctx.target  = g_ctx.current;
+        get_target_normalized();
         process_cmd();
         
-        
-        printf("%f\n", calc_ranged());
+        printf( "%f\n", g_ctx.target);
+
         
         // fork off
         if(fork())
@@ -120,10 +120,6 @@ int main(int argc, char *argv[])
         fclose(stderr);
         
         atexit(&cleanup);
-        
-        if(g_ctx.current == g_ctx.target)
-            return 0;
-        
         
         // start worker thread
         if(errno = pthread_create(&g_ctx.worker, NULL, &do_change, NULL)) {
@@ -214,36 +210,40 @@ static void cleanup(void)
 
 static void process_cmd()
 {
-    
-    // map value to range
-    float rel = (g_cmd.range_max - g_cmd.range_min) / 100.0f * g_cmd.value;
-    float abs = rel + g_cmd.range_min;
-    
     // process command
     switch(g_cmd.op) {
         case LICHT_OP_SET:
-            g_ctx.target = (int)nearbyintf(abs / 100.0f * g_ctx.max);
+            g_ctx.target = g_cmd.value;
             break;
         
         case LICHT_OP_ADD:
-            g_ctx.target += (int)nearbyintf(rel / 100.0f * g_ctx.max);
+            g_ctx.target += g_cmd.value;
             break;
         
         case LICHT_OP_SUB:
-            g_ctx.target -= (int)nearbyintf(rel / 100.0f * g_ctx.max);
+            g_ctx.target -= g_cmd.value;
             break;
         
         case LICHT_OP_MUL:
-            g_ctx.target = (int)nearbyintf(g_cmd.value * g_ctx.target);
+            g_ctx.target *= g_cmd.value;
             break;
         
         case LICHT_OP_GET:
             break;
     }
     
-    // cap target value
-    g_ctx.target =         (g_ctx.target < 0) ?         0 : g_ctx.target;
-    g_ctx.target = (g_ctx.target > g_ctx.max) ? g_ctx.max : g_ctx.target;
+    g_ctx.target = fminf(100.0f, fmaxf(0.0f, g_ctx.target));
+}
+
+
+/*
+ * set target to the current value normalized to range
+ */
+static void get_target_normalized()
+{
+    g_ctx.target = 100.0f / g_ctx.max * g_ctx.current;
+    g_ctx.target = (g_ctx.target - g_cmd.range_min) /
+                    (g_cmd.range_max - g_cmd.range_min) * 100.0f;
 }
 
 
@@ -252,9 +252,13 @@ void *do_change(void *data)
   reset:
     g_ctx.reset = 0;
     
+    int target = ((g_cmd.range_max - g_cmd.range_min) / 100.0f * g_ctx.target + g_cmd.range_min) /
+                   100.0f * g_ctx.max;
+    
+    
     float delta_t = g_cmd.smooth_duration;
     float step_t  = g_cmd.smooth_interval;
-    float delta   = g_ctx.target - g_ctx.current;
+    float delta   = target - g_ctx.current;
     FILE  *br     = fdopen(g_ctx.br_fd, "w");
     
     set_timer();
@@ -278,7 +282,7 @@ void *do_change(void *data)
         wait_timer(step_t);
     }
     
-    write_itoa(br, g_ctx.target);
+    write_itoa(br, target);
     fclose(br);
     
     return NULL;
@@ -299,19 +303,10 @@ void *do_listen(void *data)
             process_cmd();
             g_ctx.reset = 1;
         }
-        dprintf(fd, "%f\n", calc_ranged() );
+        dprintf(fd, "%f\n", g_ctx.target);
     }
     
     return NULL;
-}
-        
-        
-float calc_ranged()
-{
-    float r = 100.0f / g_ctx.max * g_ctx.target;
-    r = (r - g_cmd.range_min) * 100.0f / (g_cmd.range_max - g_cmd.range_min);
-    
-    return fminf(100.0f, fmax(0.0f, r));
 }
 
 

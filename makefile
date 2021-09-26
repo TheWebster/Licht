@@ -30,7 +30,10 @@ MKFILES := $(wildcard makefile*)
 ##############
 all: $(BIN)
 
-install: all
+install:
+	install -m 755 -D -t $(cfg_BINDIR)               $(BUILD_DIR)licht
+	install -m 644 -D -t $(cfg_SYSCONF)              $(cfg_PKG_NAME).conf
+	install -m 644 -D -t $(cfg_LIBDIR)/udev/rules.d  90-Licht-backlight.rules
 
 clean:
 	$(ECHO) Cleaning...

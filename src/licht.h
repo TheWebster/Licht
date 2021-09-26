@@ -33,9 +33,10 @@ typedef struct {
     pthread_t worker;
     pthread_t listen;
     
-    int target;
     int max;
     int current;
+    
+    float target;
 } licht_context_s;
 
 
