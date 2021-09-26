@@ -36,6 +36,7 @@ The config file is of the general form
 ```ini
 KEY = VALUE
 ```
+Whitespace before and after KEY and VALUE are ignored, as are blank lines and lines containing unknown keys. So it is possible to comment out lines by prefixing them with '#' or any other character.<br>
 `licht` first reads the systemwide config file `/etc/Licht.conf`. Then, if UID is not 0, it reads the per user config file `$XDG_CONFIG_HOME/Licht.conf`. Entries in the per user file overwrite entries in the systemwide file. The following key value pairs are recognized:
 + `DEVICE = <path-to-device>` : Absolute path to a /sys directory (or any other kind of directory) that contains the files **brightness** and **max_brightness**. If this key is not present in both configuration files, it defaults to the first directory in `/sys/class/backlight`, which is usually all there is and is what the user wants to control.
 + `SMOOTH_DURTION = <milliseconds>` : The duration a transition to another brightness value will take. Defaults to 0, which means instantneous change.
